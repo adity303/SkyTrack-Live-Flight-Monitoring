@@ -17,6 +17,13 @@ SkyTrack is a real-time flight tracking application built with FastAPI and Leafl
 - **Health Monitoring** — `/health` endpoint with database and frontend status
 - **Configurable** — Host, port, database path, poll interval, and OpenSky base URL via `config.json`
 
+## Sample Pictures 
+1. Main Dashboard --> <img width="1883" height="902" alt="Screenshot 2026-11-18 221958" src="https://github.com/user-attachments/assets/5583eea1-5691-412a-8d7d-228c3c53f0df" />
+2. Aircraft Tracking --> <img width="1858" height="865" alt="Screenshot 2026-11-18 222232" src="https://github.com/user-attachments/assets/74b29aad-1392-4d4e-965e-3437dacca802" />
+Another flight tracking --> <img width="1845" height="865" alt="Screenshot 2026-11-18 222423" src="https://github.com/user-attachments/assets/26831b1d-22df-4ef9-a56e-9536155165e0" /> Flight Map --> <img width="1435" height="612" alt="Screenshot 2026-11-18 222503" src="https://github.com/user-attachments/assets/e3c9c610-97b3-4213-b3e2-d5401b6a62ab" />
+
+
+
 ## Architecture
 
 ```
