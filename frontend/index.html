@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkyTrack | Live Flight Monitoring</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/style.css?v=3" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand__mark" aria-hidden="true">✈</span>
+      <div class="brand__text">
+        <h1>SKYTRACK</h1>
+        <span>LIVE FLIGHT MONITORING</span>
+      </div>
+    </div>
+
+    <div class="topbar__status">
+      <span class="live-pill" id="liveStatus" data-state="idle">
+        <i aria-hidden="true"></i>
+        <span id="liveStatusText">STANDBY</span>
+      </span>
+      <span class="clock" id="utcClock">--:--:-- UTC</span>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="sidebar">
+      <section class="sidebar__panel">
+        <h2>Flight Search</h2>
+
+        <div class="search-row">
+          <input type="text" id="flightNumber" placeholder="Flight number (e.g. AI101)"
+            aria-label="Airline flight number" autocomplete="off" />
+          <button id="searchFlightButton" class="btn" type="button">
+            Search
+          </button>
+        </div>
+
+        <div id="flightChoices" class="flight-choices" hidden>
+          <div class="flight-choices-header">
+            Select a flight; other live search results appear on the map
+          </div>
+          <div id="flightResults" class="flight-results" role="listbox" aria-label="Flight search results"></div>
+        </div>
+
+        <div class="identifier-row">
+          <input type="text" id="flightIdentifier" placeholder="ICAO24 (6 hex) or flight no."
+            aria-label="Aircraft identifier" autocomplete="off" />
+          <button id="trackButton" class="btn" type="button">Track</button>
+        </div>
+
+        <button id="stopButton" class="btn btn--danger btn--block" type="button" disabled>
+          Stop Tracking
+        </button>
+
+        <p id="message" class="message" role="status" aria-live="polite">
+          Enter an aircraft identifier.
+        </p>
+
+        <label class="switch">
+          <input type="checkbox" id="autoRefresh" />
+          <span class="switch__track" aria-hidden="true"></span>
+          <span class="switch__label">Auto-refresh (15s)</span>
+        </label>
+
+        <p id="lastUpdated" class="last-updated">Last updated: --</p>
+      </section>
+
+      <section class="sidebar__panel sidebar__panel--legend">
+        <h3>Map Legend</h3>
+        <ul class="legend">
+          <li>
+            <i class="legend__dot legend__dot--aircraft"></i> Selected aircraft
+          </li>
+          <li>
+            <i class="legend__dot legend__dot--search"></i> Other search results
+          </li>
+          <li><i class="legend__dot legend__dot--departure"></i> Departure</li>
+          <li><i class="legend__dot legend__dot--arrival"></i> Arrival</li>
+          <li>
+            <i class="legend__line legend__line--live"></i> Live route
+          </li>
+          <li>
+            <i class="legend__line legend__line--planned"></i> Planned route
+          </li>
+          <li>
+            <i class="legend__line legend__line--historical"></i> Historical route
+          </li>
+        </ul>
+      </section>
+    </aside>
+
+    <section class="content">
+      <!-- FLIGHT OVERVIEW -->
+      <article class="card flight-overview">
+        <div class="flight-overview__identity">
+          <div>
+            <h2 id="overviewFlightNumber">NO FLIGHT SELECTED</h2>
+            <p id="overviewAirline">
+              Search for a flight or enter an ICAO24 identifier to begin
+            </p>
+          </div>
+          <span class="badge" id="overviewStatus" data-state="unknown">
+            UNKNOWN
+          </span>
+        </div>
+
+        <dl class="flight-overview__meta">
+          <div class="meta">
+            <dt>Callsign</dt>
+            <dd id="overviewCallsign">--</dd>
+          </div>
+          <div class="meta">
+            <dt>Aircraft type</dt>
+            <dd id="overviewAircraft">--</dd>
+          </div>
+          <div class="meta">
+            <dt>Registration</dt>
+            <dd id="overviewRegistration">--</dd>
+          </div>
+        </dl>
+      </article>
+
+      <!-- LIVE TELEMETRY -->
+      <section class="card telemetry">
+        <div class="card__head">
+          <h3 class="card__title">Live Telemetry</h3>
+          <span class="card__hint" id="telemetryHint">
+            Awaiting aircraft data
+          </span>
+        </div>
+
+        <div class="telemetry__grid">
+          <div class="tile">
+            <span class="tile__label">Altitude</span>
+            <span class="tile__value"><span id="altitude">--</span>
+              <em class="tile__unit">ft</em></span>
+            <span class="tile__foot" id="altitudeFoot">barometric</span>
+          </div>
+
+          <div class="tile">
+            <span class="tile__label">Ground speed</span>
+            <span class="tile__value"><span id="speed">--</span>
+              <em class="tile__unit">kt</em></span>
+            <span class="tile__foot" id="speedFoot">--</span>
+          </div>
+
+          <div class="tile">
+            <span class="tile__label">Heading</span>
+            <span class="tile__value"><span id="heading">--</span>
+              <em class="tile__unit">°</em></span>
+            <span class="tile__foot" id="headingFoot">--</span>
+          </div>
+
+          <div class="tile">
+            <span class="tile__label">Vertical speed</span>
+            <span class="tile__value"><span id="verticalSpeed">--</span>
+              <em class="tile__unit">ft/min</em></span>
+            <span class="tile__foot" id="verticalSpeedFoot">level</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ROUTE INFORMATION -->
+      <section class="card route-card">
+        <div class="card__head">
+          <h3 class="card__title">Route Information</h3>
+          <span class="card__hint" id="routeHint">No route data</span>
+        </div>
+
+        <div class="route">
+          <div class="route__point">
+            <span class="route__code" id="routeDepartureCode">---</span>
+            <span class="route__city" id="routeDepartureCity">
+              Departure
+            </span>
+            <span class="route__time" id="routeDepartureTime">--</span>
+          </div>
+
+          <div class="route__progress">
+            <div class="route__track" role="progressbar" aria-label="Flight progress" aria-valuemin="0"
+              aria-valuemax="100" aria-valuenow="0" id="routeProgress">
+              <div class="route__fill" id="routeProgressFill" style="width: 0%"></div>
+              <span class="route__plane" id="routePlane" aria-hidden="true">✈</span>
+            </div>
+            <span class="route__percent" id="routeProgressPercent">0%</span>
+          </div>
+
+          <div class="route__point route__point--right">
+            <span class="route__code" id="routeArrivalCode">---</span>
+            <span class="route__city" id="routeArrivalCity">Arrival</span>
+            <span class="route__time" id="routeArrivalTime">--</span>
+          </div>
+        </div>
+
+        <div class="route__meta">
+          <div class="route__stat">
+            <span>Distance covered</span>
+            <b id="distanceCovered">--</b>
+          </div>
+          <div class="route__stat">
+            <span>Distance remaining</span>
+            <b id="distanceRemaining">--</b>
+          </div>
+          <div class="route__stat">
+            <span>Estimated arrival</span>
+            <b id="etaTime">--</b>
+          </div>
+        </div>
+      </section>
+
+      <!-- FLIGHT ANALYTICS -->
+      <section class="card analytics">
+        <div class="card__head">
+          <h3 class="card__title">Flight Analytics</h3>
+          <span class="card__hint" id="analyticsHint">--</span>
+        </div>
+
+        <dl class="analytics__list">
+          <div class="analytics__row">
+            <dt>Distance covered</dt>
+            <dd id="analyticsDistance">--</dd>
+          </div>
+          <div class="analytics__row">
+            <dt>Planned distance</dt>
+            <dd id="analyticsPlanned">--</dd>
+          </div>
+          <div class="analytics__row">
+            <dt>Flight duration</dt>
+            <dd id="analyticsDuration">--</dd>
+          </div>
+          <div class="analytics__row">
+            <dt>Estimated arrival</dt>
+            <dd id="analyticsEta">--</dd>
+          </div>
+          <div class="analytics__row">
+            <dt>Tracked waypoints</dt>
+            <dd id="analyticsWaypoints">--</dd>
+          </div>
+        </dl>
+
+        <button id="historyButton" class="btn btn--ghost btn--block" type="button">
+          Load Historical Route
+        </button>
+      </section>
+
+      <!-- FLIGHT MAP -->
+      <section class="card map-card">
+        <div class="card__head">
+          <h3 class="card__title">Flight Map</h3>
+          <span class="card__hint" id="mapHint">
+            Aircraft position, airports and flight path
+          </span>
+        </div>
+        <div class="map-card__body">
+          <div id="map"></div>
+        </div>
+      </section>
+
+      <!-- TRACKING HISTORY -->
+      <section class="card history-card">
+        <div class="card__head">
+          <h3 class="card__title">Tracking History</h3>
+          <span class="card__hint" id="historyHint">No history yet</span>
+        </div>
+
+        <div class="history-list" id="historyList">
+          <p class="history-empty">No tracking history available.</p>
+        </div>
+      </section>
+
+      <!-- FLIGHT REPORTS -->
+      <section class="card reports-card">
+        <div class="card__head">
+          <h3 class="card__title">Flight Reports</h3>
+          <span class="card__hint" id="reportsHint">
+            Export tracking history, route details and flight statistics
+          </span>
+        </div>
+
+        <div class="reports-form">
+          <div class="reports__row">
+            <label class="reports__label" for="reportType">Report</label>
+            <select id="reportType" class="reports__select">
+              <option value="tracking-history">Tracking History</option>
+              <option value="route-details">Route Details</option>
+              <option value="flight-statistics">Flight Statistics</option>
+            </select>
+          </div>
+
+          <div class="reports__row">
+            <label class="reports__label" for="reportFormat">Format</label>
+            <select id="reportFormat" class="reports__select">
+              <option value="csv">CSV</option>
+              <option value="excel">Excel</option>
+              <option value="pdf">PDF</option>
+            </select>
+          </div>
+
+          <button id="exportReportButton" class="btn btn--block" type="button" disabled>
+            Export Report
+          </button>
+
+          <p id="reportsMessage" class="last-updated"></p>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="/js/config.js"></script>
+  <script src="js/map.js?v=4"></script>
+  <script src="js/app.js?v=4"></script>
+</body>
+
+</html>
